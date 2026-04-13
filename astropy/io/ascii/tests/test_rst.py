@@ -185,3 +185,62 @@ Col1      Col2 Col3 Col4
 ==== ========= ==== ====
 """,
     )
+
+
+def test_write_header_rows():
+    """Write a table as a SimpleRST Table with header_rows"""
+    from astropy.table import QTable
+    import astropy.units as u
+
+    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
+
+    # Test with header_rows=["name", "unit"]
+    out = StringIO()
+    ascii.write(tbl, out, Writer=ascii.RST, header_rows=["name", "unit"])
+    assert_equal_splitlines(
+        out.getvalue(),
+        """\
+===== ========
+ wave response
+   nm       ct
+===== ========
+350.0      0.7
+950.0      1.2
+===== ========
+""",
+    )
+
+    # Test that header_rows=["name"] gives the same output as default
+    out_default = StringIO()
+    ascii.write(tbl, out_default, Writer=ascii.RST)
+    out_explicit = StringIO()
+    ascii.write(tbl, out_explicit, Writer=ascii.RST, header_rows=["name"])
+    assert_equal_splitlines(out_default.getvalue(), out_explicit.getvalue())
+
+
+def test_rst_with_header_rows():
+    """Round-trip a table with header_rows specified"""
+    import numpy as np
+    import astropy.units as u
+    from astropy.table import QTable
+
+    lines = [
+        "======= ======== ====",
+        "   wave response ints",
+        "     nm       ct     ",
+        "float64  float32 int8",
+        "======= ======== ====",
+        "  350.0      1.0    1",
+        "  950.0      2.0    2",
+        "======= ======== ====",
+    ]
+    tbl = QTable.read(lines, format="ascii.rst", header_rows=["name", "unit", "dtype"])
+    assert tbl["wave"].unit == u.nm
+    assert tbl["response"].unit == u.ct
+    assert tbl["wave"].dtype == np.float64
+    assert tbl["response"].dtype == np.float32
+    assert tbl["ints"].dtype == np.int8
+
+    out = StringIO()
+    tbl.write(out, format="ascii.rst", header_rows=["name", "unit", "dtype"])
+    assert out.getvalue().splitlines() == lines
