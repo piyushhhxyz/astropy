@@ -59,6 +59,7 @@ class RST(FixedWidth):
 
     def __init__(self, header_rows=None):
         super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
+        self.data.start_line = len(self.header.header_rows) + 2
 
     def write(self, lines):
         lines = super().write(lines)
