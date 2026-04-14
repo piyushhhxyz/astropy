@@ -50,6 +50,15 @@ class RST(FixedWidth):
     or for ones which define column spans through the use of an additional
     line of dashes in the header.
 
+    Parameters
+    ----------
+    header_rows : list, optional
+        List of table rows to output as header rows in the RST table.
+        The default is ``['name']``. Allowed values are any column
+        attribute (e.g. ``'name'``, ``'unit'``, ``'dtype'``). For
+        example, ``header_rows=['name', 'unit']`` will produce a
+        two-row header with column names and units.
+
     """
 
     _format_name = "rst"
@@ -57,10 +66,19 @@ class RST(FixedWidth):
     data_class = SimpleRSTData
     header_class = SimpleRSTHeader
 
-    def __init__(self):
-        super().__init__(delimiter_pad=None, bookend=False)
+    def __init__(self, header_rows=None):
+        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
+        # Adjust data start_line based on header_rows length. The RST format
+        # has a separator line (=====) before and after the header rows, so the
+        # data starts at: 1 (opening separator) + len(header_rows) + 1 (closing
+        # separator) = len(header_rows) + 2.
+        self.data.start_line = len(self.header.header_rows) + 2
 
     def write(self, lines):
         lines = super().write(lines)
-        lines = [lines[1]] + lines + [lines[1]]
+        # Index of the separator line (=====) in the parent's output. The
+        # parent writes header_rows followed by the position/separator line,
+        # so the separator is at index len(header_rows).
+        idx = len(self.header.header_rows)
+        lines = [lines[idx]] + lines + [lines[idx]]
         return lines

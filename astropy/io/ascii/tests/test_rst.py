@@ -2,7 +2,9 @@
 
 from io import StringIO
 
+import astropy.units as u
 from astropy.io import ascii
+from astropy.table import QTable
 
 from .common import assert_almost_equal, assert_equal
 
@@ -185,3 +187,61 @@ Col1      Col2 Col3 Col4
 ==== ========= ==== ====
 """,
     )
+
+
+def test_write_header_rows_name_unit():
+    """Write a QTable with header_rows=['name', 'unit'] in RST format."""
+    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
+    out = StringIO()
+    tbl.write(out, format="ascii.rst", header_rows=["name", "unit"])
+    assert_equal_splitlines(
+        out.getvalue(),
+        """\
+===== ========
+ wave response
+   nm       ct
+===== ========
+350.0      0.7
+950.0      1.2
+===== ========
+""",
+    )
+
+
+def test_write_header_rows_name_only():
+    """Write RST with explicit header_rows=['name'] (same as default)."""
+    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
+    out = StringIO()
+    tbl.write(out, format="ascii.rst", header_rows=["name"])
+    expected = StringIO()
+    tbl.write(expected, format="ascii.rst")
+    assert_equal_splitlines(out.getvalue(), expected.getvalue())
+
+
+def test_round_trip_header_rows_name_unit():
+    """Round-trip: write with header_rows=['name', 'unit'] then read back."""
+    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
+    out = StringIO()
+    tbl.write(out, format="ascii.rst", header_rows=["name", "unit"])
+
+    result = ascii.read(
+        out.getvalue(), format="rst", header_rows=["name", "unit"]
+    )
+    assert_equal(result.colnames, ["wave", "response"])
+    assert result["wave"].unit == u.nm
+    assert result["response"].unit == u.Unit("ct")
+    assert_almost_equal(result["wave"][0], 350.0)
+    assert_almost_equal(result["wave"][1], 950.0)
+    assert_almost_equal(result["response"][0], 0.7)
+    assert_almost_equal(result["response"][1], 1.2)
+
+
+def test_round_trip_default():
+    """Round-trip: write and read back with default header_rows=['name']."""
+    out = StringIO()
+    ascii.write(dat, out, Writer=ascii.RST)
+    result = ascii.read(out.getvalue(), Reader=ascii.RST)
+    assert_equal(result.colnames, dat.colnames)
+    for col in dat.colnames:
+        for i in range(len(dat)):
+            assert_equal(result[col][i], dat[col][i])
